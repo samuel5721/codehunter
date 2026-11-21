@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f3f3f3" />
+  <title>색깔 사냥</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='3' y='3' width='26' height='26' rx='6' fill='%231f1f1f'/%3E%3Crect x='9' y='9' width='14' height='14' rx='3' fill='%23f3f3f3'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="netbar" class="netbar" role="status" aria-live="polite" hidden></div>
+
+  <!-- ================= 첫 화면 ================= -->
+  <section class="view home" data-view="home">
+    <div class="home-inner">
+      <div class="logo-chips" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <h1 class="logo">색깔 사냥</h1>
+      <p class="lede">화면에 뜬 색과 닮은 물건을 제한 시간 안에 찾아 찍으세요. 가장 비슷한 색을 찍은 사람이 이겨요.</p>
+
+      <div class="home-grid">
+        <form id="join-form" class="card join-card" autocomplete="off">
+          <h2>참가하기</h2>
+          <label class="field">
+            <span>방 코드</span>
+            <input id="join-code" class="code-input" maxlength="4" inputmode="text" autocapitalize="characters" placeholder="ABCD" required />
+          </label>
+          <label class="field">
+            <span>이름</span>
+            <input id="join-name" maxlength="10" placeholder="화면에 보일 이름" required />
+          </label>
+          <button type="submit" class="btn btn-ink btn-wide">참가하기</button>
+          <p id="join-msg" class="msg" aria-live="polite"></p>
+        </form>
+
+        <div class="card host-card">
+          <h2>게임 만들기</h2>
+          <p>노트북이나 TV처럼 다 같이 보는 큰 화면에서 여세요. 이 화면이 방이 되고, 참가자는 휴대폰으로 QR을 찍어 들어와요.</p>
+          <button type="button" id="btn-host" class="btn btn-line btn-wide">진행자 화면 열기</button>
+          <p id="host-msg" class="msg" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 진행자: 대기실 ================= -->
+  <section class="view host-lobby" data-view="host-lobby">
+    <header class="bar">
+      <h1 class="bar-title">색깔 사냥 <span>진행자</span></h1>
+      <p id="host-status" class="bar-status"></p>
+    </header>
+
+    <div class="lobby-grid">
+      <div class="card invite">
+        <p class="invite-label">휴대폰 카메라로 QR을 찍거나, 첫 화면에서 방 코드를 입력하세요</p>
+        <div id="qr" class="qr" aria-label="참가 QR 코드" role="img"></div>
+        <p class="room-code" id="room-code">----</p>
+        <p class="join-url"><span id="join-url"></span> <button type="button" class="link-btn" id="btn-copy">주소 복사</button></p>
+      </div>
+
+      <div class="lobby-side">
+        <form class="card settings" id="settings" onsubmit="return false">
+          <h2>게임 설정</h2>
+          <fieldset class="seg">
+            <legend>방식</legend>
+            <label><input type="radio" name="mode" value="solo" checked /><span>개인전</span></label>
+            <label><input type="radio" name="mode" value="team" /><span>팀전</span></label>
+          </fieldset>
+          <fieldset class="seg" id="team-count-field" hidden>
+            <legend>팀 수</legend>
+            <label><input type="radio" name="teams" value="2" checked /><span>2팀</span></label>
+            <label><input type="radio" name="teams" value="3" /><span>3팀</span></label>
+            <label><input type="radio" name="teams" value="4" /><span>4팀</span></label>
+          </fieldset>
+          <fieldset class="seg">
+            <legend>제한 시간</legend>
+            <label><input type="radio" name="time" value="30" /><span>30초</span></label>
+            <label><input type="radio" name="time" value="60" checked /><span>1분</span></label>
+            <label><input type="radio" name="time" value="90" /><span>1분 30초</span></label>
+            <label><input type="radio" name="time" value="120" /><span>2분</span></label>
+          </fieldset>
+          <fieldset class="seg">
+            <legend>라운드</legend>
+            <label><input type="radio" name="rounds" value="1" /><span>1</span></label>
+            <label><input type="radio" name="rounds" value="3" checked /><span>3</span></label>
+            <label><input type="radio" name="rounds" value="5" /><span>5</span></label>
+            <label><input type="radio" name="rounds" value="7" /><span>7</span></label>
+          </fieldset>
+          <fieldset class="seg">
+            <legend>채점</legend>
+            <label><input type="radio" name="level" value="1" /><span>후하게</span></label>
+            <label><input type="radio" name="level" value="2" checked /><span>보통</span></label>
+            <label><input type="radio" name="level" value="3" /><span>깐깐하게</span></label>
+          </fieldset>
+          <fieldset class="seg">
+            <legend>색 정하기</legend>
+            <label><input type="radio" name="colorMode" value="random" checked /><span>라운드마다 랜덤</span></label>
+            <label><input type="radio" name="colorMode" value="pick" /><span>직접 고르기</span></label>
+          </fieldset>
+        </form>
+
+        <div class="card players">
+          <div class="players-head">
+            <h2>참가자 <span id="player-count">0</span>명</h2>
+            <button type="button" class="link-btn" id="btn-shuffle-teams" hidden>팀 자동 배정</button>
+          </div>
+          <div id="player-board" class="player-board"></div>
+          <p id="players-empty" class="empty">아직 아무도 없어요. QR을 찍어 들어오면 여기에 이름이 떠요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="start-row">
+      <div id="pick-row" class="pick-row" hidden>
+        <label for="pick-color">이번 라운드 색</label>
+        <input type="color" id="pick-color" value="#2d63c8" />
+        <span id="pick-name" class="pick-name"></span>
+      </div>
+      <button type="button" class="btn btn-ink btn-big" id="btn-start-round">1라운드 시작</button>
+    </div>
+  </section>
+
+  <!-- ================= 진행자: 사냥 중 ================= -->
+  <section class="view host-hunt" data-view="host-hunt">
+    <div class="hunt-stage">
+      <p class="hunt-round" id="hh-round">1 / 3 라운드</p>
+      <div class="hunt-center">
+        <p class="hunt-name" id="hh-name">파랑</p>
+        <p class="hunt-hex" id="hh-hex">#2D63C8</p>
+        <p class="hunt-timer" id="hh-timer" aria-live="off">60</p>
+      </div>
+      <div class="hunt-foot">
+        <p class="hunt-count" id="hh-count">0 / 0명 제출</p>
+        <div class="feed" id="hh-feed" aria-label="방금 올라온 사진"></div>
+        <button type="button" class="btn btn-chip" id="btn-end-now">지금 끝내기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 진행자: 라운드 결과 ================= -->
+  <section class="view host-result" data-view="host-result">
+    <header class="bar">
+      <h1 class="bar-title" id="hr-title">1라운드 결과</h1>
+      <div class="target-pair" id="hr-target"></div>
+    </header>
+    <div id="hr-teams" class="team-rank" hidden></div>
+    <ol id="hr-grid" class="shot-grid"></ol>
+    <p id="hr-missing" class="missing"></p>
+    <div class="result-actions">
+      <button type="button" class="btn btn-line" id="btn-to-lobby">대기실로</button>
+      <button type="button" class="btn btn-ink btn-big" id="btn-next-round">다음 라운드</button>
+    </div>
+  </section>
+
+  <!-- ================= 진행자: 최종 ================= -->
+  <section class="view host-final" data-view="host-final">
+    <header class="final-head">
+      <p class="final-label" id="hf-label">최종 1등</p>
+      <h1 class="final-name" id="hf-name">-</h1>
+      <p class="final-score" id="hf-score"></p>
+    </header>
+    <div id="hf-podium" class="podium"></div>
+    <div class="card">
+      <h2 id="hf-table-title">전체 순위</h2>
+      <table class="rank-table">
+        <thead id="hf-thead"></thead>
+        <tbody id="hf-body"></tbody>
+      </table>
+    </div>
+    <div class="result-actions">
+      <button type="button" class="btn btn-line" id="btn-new-game">같은 사람들로 새 게임</button>
+    </div>
+  </section>
+
+  <!-- ================= 참가자: 대기 ================= -->
+  <section class="view p-lobby" data-view="p-lobby">
+    <div class="p-wrap">
+      <p class="p-room">방 <b id="pl-code">----</b></p>
+      <h1 class="p-hello"><span id="pl-name">-</span> 님, 들어왔어요</h1>
+      <p class="p-sub" id="pl-sub">진행자가 시작하면 바로 색이 나와요.</p>
+
+      <div id="pl-teams" class="team-pick" hidden>
+        <p class="field-label">팀 고르기</p>
+        <div id="pl-team-buttons" class="team-buttons"></div>
+      </div>
+
+      <div class="card cam-check">
+        <h2>카메라 미리 켜 두기</h2>
+        <p>시작하고 나서 권한을 묻느라 시간을 뺏기지 않게, 지금 한 번 허용해 두세요.</p>
+        <video id="pl-preview" class="cam-preview" playsinline muted hidden></video>
+        <button type="button" class="btn btn-line btn-wide" id="btn-cam-test">카메라 켜 보기</button>
+        <p id="pl-cam-msg" class="msg"></p>
+      </div>
+
+      <div id="pl-last" class="card my-total" hidden>
+        <p>지금까지 내 점수 <b id="pl-total">0</b>점</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 참가자: 사냥 ================= -->
+  <section class="view p-hunt" data-view="p-hunt">
+    <video id="ph-video" class="cam-full" playsinline muted autoplay></video>
+    <div class="ph-top">
+      <div class="chip-card" id="ph-chip">
+        <i id="ph-swatch"></i>
+        <span><b id="ph-name">파랑</b><small id="ph-hex">#2D63C8</small></span>
+      </div>
+      <p class="ph-timer" id="ph-timer">60</p>
+    </div>
+    <div class="ph-count" id="ph-count" hidden>3</div>
+    <p class="ph-hint" id="ph-hint">이 색과 닮은 물건을 화면 가득 담아 찍으세요</p>
+    <div class="ph-bottom">
+      <div class="ph-sent" id="ph-sent" hidden>
+        <img id="ph-thumb" alt="보낸 사진" />
+        <span id="ph-sent-text">보냈어요</span>
+      </div>
+      <button type="button" class="shutter" id="btn-shutter" aria-label="사진 찍기"></button>
+      <label class="ph-file">
+        <input type="file" id="ph-file" accept="image/*" capture="environment" />
+        <span>기본 카메라로</span>
+      </label>
+    </div>
+    <p class="ph-error" id="ph-error" hidden></p>
+  </section>
+
+  <!-- ================= 참가자: 기다림 / 결과 ================= -->
+  <section class="view p-wait" data-view="p-wait">
+    <div class="p-wrap center">
+      <div class="spinner" aria-hidden="true"></div>
+      <h1 class="p-hello" id="pw-title">채점하는 중</h1>
+      <p class="p-sub" id="pw-sub">큰 화면을 봐 주세요.</p>
+    </div>
+  </section>
+
+  <section class="view p-result" data-view="p-result">
+    <div class="p-wrap">
+      <div class="target-pair" id="pr-target"></div>
+      <div class="my-score">
+        <p class="my-rank" id="pr-rank">-</p>
+        <p class="my-points"><b id="pr-score">0</b>점</p>
+      </div>
+      <figure class="shot mine" id="pr-shot"></figure>
+      <div id="pr-teams" class="team-rank compact" hidden></div>
+      <h2 class="list-title">이번 라운드 순위</h2>
+      <ol id="pr-list" class="mini-list"></ol>
+      <p class="p-sub">다음 라운드는 진행자가 시작해요.</p>
+    </div>
+  </section>
+
+  <section class="view p-final" data-view="p-final">
+    <div class="p-wrap">
+      <p class="final-label" id="pf-label">최종 결과</p>
+      <h1 class="final-name small" id="pf-winner">-</h1>
+      <p class="my-final" id="pf-mine"></p>
+      <ol id="pf-list" class="mini-list"></ol>
+    </div>
+  </section>
+
+  <canvas id="confetti" class="confetti" aria-hidden="true"></canvas>
+
+  <script src="lib/peerjs.min.js"></script>
+  <script src="lib/qrcode.js"></script>
+  <script src="js/color.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/host.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
