@@ -11,7 +11,9 @@
     deadline: 0, timer: 0,
     sending: null,         // 보내는 중이거나 못 보낸 사진 { round, buf, url }
     sentRound: 0,
-    results: {}, final: null, thumbs: []
+    results: {}, final: null, thumbs: [],
+    shown: null,           // 지금 화면에 띄운 결과 ('r3' / 'final')
+    animating: false
   };
 
   function myPid() {
@@ -74,16 +76,9 @@
       return;
     }
     if (m.t === 'late') { P.sending = null; setSent('시간이 끝나서 못 보냈어요.'); return; }
-    if (m.t === 'result') {
-      P.results[m.round] = m;
-      if (P.s && P.s.phase === 'result' && P.s.round === m.round) renderResult(m);
-      return;
-    }
-    if (m.t === 'final') {
-      P.final = m;
-      if (P.s && P.s.phase === 'final') renderFinal(m);
-      return;
-    }
+    if (m.t === 'result') { P.results[m.round] = m; P.shown = null; return; }
+    if (m.t === 'final') { P.final = m; P.shown = null; return; }
+    if (m.t === 'revealed') { revealMine(m.final); return; }
     if (m.t === 'kicked') backHome('진행자가 방에서 내보냈어요.');
   }
 
@@ -107,12 +102,10 @@
       UI.show('p-wait');
     } else if (phase === 'result') {
       stopHunt();
-      if (P.results[s.round]) renderResult(P.results[s.round]);
-      else { $('pw-title').textContent = '결과를 받는 중'; $('pw-sub').textContent = ''; UI.show('p-wait'); }
+      showWhenReady('r' + s.round, P.results[s.round], s.revealed, function () { renderResult(P.results[s.round]); });
     } else if (phase === 'final') {
       stopHunt();
-      if (P.final) renderFinal(P.final);
-      else { $('pw-title').textContent = '최종 결과를 받는 중'; $('pw-sub').textContent = ''; UI.show('p-wait'); }
+      showWhenReady('final', P.final, s.revealed, function () { renderFinal(P.final); });
     }
   }
 
@@ -252,6 +245,54 @@
   }
 
   /* ================= 결과 ================= */
+  // 큰 화면에서 발표 중이면 기다리고, 이미 끝났으면(늦게 들어온 경우) 바로 보여 줌
+  function showWhenReady(key, data, revealed, render) {
+    if (P.animating) return;
+    if (!data) { waitScreen('결과를 받는 중', ''); return; }
+    if (!revealed) { waitScreen('순위 발표 중!', '큰 화면을 봐 주세요. 발표가 끝나면 여기에 내 순위가 떠요.'); return; }
+    if (P.shown === key) return;
+    P.shown = key;
+    render();
+  }
+
+  function waitScreen(title, sub) {
+    $('pw-title').textContent = title;
+    $('pw-sub').textContent = sub;
+    UI.show('p-wait');
+  }
+
+  // 큰 화면 발표가 끝났다는 신호 → 슬롯머신처럼 내 순위 공개
+  function revealMine(isFinal) {
+    if (P.animating) return;
+    var d = null, render = null, key = null;
+    if (isFinal && P.final) {
+      var f = P.final, me = f.list.filter(function (x) { return x.pid === P.pid; })[0];
+      key = 'final';
+      render = function () { renderFinal(f); };
+      if (me && f.mode === 'team' && me.team >= 0) {
+        var t = f.teams.filter(function (x) { return x.id === me.team; })[0];
+        if (t) d = { title: '우리 ' + t.name + '은', rank: t.rank, of: f.teams.length, score: t.total, yay: '우승!' };
+      } else if (me) {
+        d = { title: '최종 순위', rank: me.rank, of: f.list.length, score: me.total, yay: '최종 1등!' };
+      }
+    } else if (!isFinal && P.s && P.results[P.s.round]) {
+      var r = P.results[P.s.round], mine = r.list.filter(function (x) { return x.pid === P.pid; })[0];
+      key = 'r' + r.round;
+      render = function () { renderResult(r); };
+      if (mine) d = { title: '내 순위는', rank: mine.rank, of: r.list.length, score: mine.score, none: !mine.thumb && !mine.score };
+      UI.setTarget(r.target.hex);
+    }
+    if (!render) return;
+    if (!d) { P.shown = key; render(); return; }
+    d.hex = getComputedStyle(document.documentElement).getPropertyValue('--target').trim();
+    P.animating = true;
+    Reveal.phone(d, function () {
+      P.animating = false;
+      P.shown = key;
+      render();
+    });
+  }
+
   function thumbUrl(item) {
     if (!item.thumb) return null;
     if (!item._url) { item._url = UI.bufToUrl(item.thumb); P.thumbs.push(item._url); }
@@ -298,7 +339,6 @@
       li.appendChild(el('span', 's', UI.fmtScore(x.score)));
       ol.appendChild(li);
     });
-    if (mine && mine.rank === 1 && mine.score > 0) { UI.sfx.fanfare(); UI.confetti([r.target.hex]); }
   }
 
   function renderFinal(f) {
@@ -330,9 +370,6 @@
       li.appendChild(el('span', 's', UI.fmtScore(x.total)));
       ol.appendChild(li);
     });
-    if (me && ((team && winners.some(function (w) { return w.id === me.team; })) || (!team && me.rank === 1))) {
-      UI.sfx.fanfare(); UI.confetti();
-    }
   }
 
   /* ================= 기타 ================= */

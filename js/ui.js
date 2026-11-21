@@ -95,8 +95,49 @@
     o.connect(g); g.connect(c.destination);
     o.start(t); o.stop(t + dur + 0.05);
   }
+  // 잡음 기반 소리 (드럼롤, 심벌, 휙)
+  var noiseBuf = null;
+  function noise(at, dur, vol, filterType, freq, q) {
+    var c = ctx(); if (!c) return;
+    if (!noiseBuf) {
+      noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+      var d = noiseBuf.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    var t = c.currentTime + (at || 0), s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = noiseBuf; s.loop = true;
+    f.type = filterType || 'bandpass'; f.frequency.value = freq || 1000; f.Q.value = q || 0.7;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol || 0.2, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(c.destination);
+    s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  }
+  function sweep(f0, f1, dur, vol, type) {
+    var c = ctx(); if (!c) return;
+    var t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol || 0.08, t + dur * 0.2);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+
   var sfx = {
     unlock: function () { ctx(); },
+    scan: function () { for (var i = 0; i < 10; i++) tone(1800 + Math.random() * 1400, i * 0.11, 0.05, 'sine', 0.035); },
+    blip: function () { tone(1568, 0, 0.09, 'triangle', 0.12); },
+    whoosh: function (dur) { noise(0, dur || 1.5, 0.12, 'bandpass', 900, 0.6); sweep(220, 880, dur || 1.5, 0.06, 'sine'); },
+    shuffle: function () { for (var i = 0; i < 6; i++) noise(i * 0.06, 0.05, 0.12, 'highpass', 3000, 1); },
+    pop: function () { tone(523, 0, 0.12, 'triangle', 0.16); tone(784, 0.07, 0.2, 'triangle', 0.14); },
+    drumroll: function (dur) {
+      var n = Math.floor((dur || 1.8) / 0.045);
+      for (var i = 0; i < n; i++) noise(i * 0.045, 0.06, 0.05 + 0.2 * (i / n), 'bandpass', 700, 0.9);
+    },
+    cymbal: function () { noise(0, 1.6, 0.22, 'highpass', 5000, 0.5); noise(0, 0.25, 0.3, 'lowpass', 200, 1); },
     tick: function () { tone(880, 0, 0.12, 'sine', 0.18); },
     go: function () { tone(1320, 0, 0.3, 'sine', 0.22); },
     low: function () { tone(1040, 0, 0.08, 'square', 0.06); },

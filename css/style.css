@@ -360,3 +360,227 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* =====================================================================
+   순위 발표 연출 (js/reveal.js)
+   ===================================================================== */
+.rv-stage {
+  position: fixed; inset: 0; z-index: 50; overflow: hidden;
+  display: grid; place-items: center;
+  background: var(--target); color: var(--on-target);
+  font-family: var(--body);
+}
+.rv-skip {
+  position: absolute; right: 22px; bottom: 20px; z-index: 5;
+  appearance: none; border: 0; cursor: pointer; font: inherit; font-size: 15px;
+  padding: 10px 18px; border-radius: 999px; color: inherit; background: rgba(0, 0, 0, .16);
+}
+.rv-skip:hover { background: rgba(0, 0, 0, .28); }
+.rv-title {
+  position: absolute; top: 4vh; left: 0; right: 0; z-index: 3; margin: 0; text-align: center;
+  font-family: var(--display); font-size: clamp(26px, 3.4vw, 46px); line-height: 1.2;
+}
+.rv-big { font-family: var(--display); font-size: clamp(36px, 6vw, 80px); margin: 0; }
+
+/* 1. 스캔 */
+.rv-scan { display: grid; justify-content: center; align-content: center; margin-top: 6vh; }
+.rv-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.rv-tile-photo { width: 100%; display: grid; place-items: center; }
+.rv-frame { position: relative; }
+.rv-frame img {
+  display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 10px;
+  box-shadow: 0 0 0 4px var(--on-target), 0 14px 30px rgba(0, 0, 0, .25);
+}
+.rv-tile-name { font-family: var(--display); font-size: clamp(16px, 1.6vw, 24px); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-reticle {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  border: 3px solid #fff; border-radius: 6px; opacity: 0;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, .7), inset 0 0 0 2px rgba(0, 0, 0, .7);
+}
+.rv-reticle::before, .rv-reticle::after {
+  content: ""; position: absolute; left: 50%; top: 50%; background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6);
+}
+.rv-reticle::before { width: 2px; height: 140%; transform: translate(-50%, -50%); opacity: .0; }
+.rv-reticle::after { width: 140%; height: 2px; transform: translate(-50%, -50%); opacity: .0; }
+.rv-reticle.is-lock { animation: lock .5s ease-out; }
+@keyframes lock {
+  0% { box-shadow: 0 0 0 2px rgba(0, 0, 0, .7), inset 0 0 0 2px rgba(0, 0, 0, .7), 0 0 0 0 rgba(255, 255, 255, .9); }
+  100% { box-shadow: 0 0 0 2px rgba(0, 0, 0, .7), inset 0 0 0 2px rgba(0, 0, 0, .7), 0 0 0 26px rgba(255, 255, 255, 0); }
+}
+.rv-chip {
+  position: absolute; width: 34px; height: 34px; border-radius: 50%; z-index: 2;
+  border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .45), 0 6px 14px rgba(0, 0, 0, .35);
+}
+
+/* 2. 색 경주 */
+.rv-race { width: min(1200px, 92vw); margin-top: 8vh; }
+.rv-race-head, .rv-lane {
+  display: grid; grid-template-columns: 44px minmax(90px, 200px) 1fr 96px; align-items: center; gap: 14px;
+}
+.rv-race-head { font-size: 14px; opacity: .8; margin-bottom: 6px; }
+.rv-race-head .rv-race-start { justify-self: start; }
+.rv-goal { grid-column: 3; justify-self: end; display: inline-flex; align-items: center; gap: 8px; }
+.rv-goal i { width: 22px; height: 22px; border-radius: 50%; background: var(--target); box-shadow: 0 0 0 3px var(--on-target); }
+.rv-lane { position: relative; height: var(--lane); border-radius: 12px; padding: 0 6px; }
+.rv-lane.is-top { background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 2px var(--on-target); }
+.rv-rank { font-family: var(--display); font-size: calc(var(--lane) * .6); text-align: center; }
+.rv-name { font-family: var(--display); font-size: clamp(14px, calc(var(--lane) * .42), 26px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-track { position: relative; height: 100%; }
+.rv-track::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; transform: translateY(-50%);
+  background: currentColor; opacity: .28; border-radius: 1px;
+}
+.rv-track::after {
+  content: ""; position: absolute; right: calc(var(--lane) * .35 - 1px); top: 12%; bottom: 12%; width: 0;
+  border-left: 3px dashed currentColor; opacity: .55;
+}
+.rv-runner {
+  position: absolute; left: 0; top: 50%; margin-top: calc(var(--lane) * -.35);
+  width: calc(var(--lane) * .7); height: calc(var(--lane) * .7); border-radius: 50%;
+  border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .45), 0 6px 14px rgba(0, 0, 0, .3);
+}
+.rv-score { font-family: var(--display); font-size: clamp(16px, calc(var(--lane) * .5), 34px); text-align: right; font-variant-numeric: tabular-nums; opacity: .6; }
+.rv-lane.is-done .rv-score { opacity: 1; }
+
+/* 3. 팀 대결 */
+.rv-teams { display: flex; align-items: flex-end; justify-content: center; gap: 4vw; height: 64vh; margin-top: 8vh; }
+.rv-team { width: min(180px, 18vw); height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px; }
+.rv-team-val { font-family: var(--display); font-size: clamp(30px, 4vw, 64px); line-height: 1; font-variant-numeric: tabular-nums; }
+.rv-team-bar {
+  position: relative; width: 100%; height: 0; max-height: 78%; border-radius: 14px 14px 4px 4px;
+  background: var(--on-target); opacity: .55;
+}
+.rv-team.is-win .rv-team-bar { opacity: 1; }
+.rv-team-badge {
+  position: absolute; left: 50%; top: 12px; transform: translate(-50%, 0); opacity: 0;
+  font-family: var(--display); font-size: 26px; padding: 6px 14px; border-radius: 999px;
+  background: var(--target); color: var(--on-target); white-space: nowrap;
+}
+.rv-team-name { font-family: var(--display); font-size: clamp(18px, 2vw, 30px); }
+
+/* 4. TOP 3 */
+.rv-top { position: relative; display: flex; align-items: center; justify-content: center; gap: 2.4vw; width: 100%; margin-top: 6vh; }
+.rv-slot { position: relative; z-index: 1; display: grid; place-items: center; }
+.rv-slot.is-center { z-index: 2; }
+.rv-rays {
+  position: absolute; left: 50%; top: 50%; width: 150vmax; height: 150vmax; transform: translate(-50%, -50%);
+  opacity: 0; pointer-events: none; z-index: 0;
+}
+.rv-rays i {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, .16) 0deg 7deg, transparent 7deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0, #000 18%, transparent 60%);
+  mask-image: radial-gradient(circle, #000 0, #000 18%, transparent 60%);
+  animation: rays-spin 40s linear infinite;
+}
+@keyframes rays-spin { to { transform: rotate(360deg); } }
+.rv-card {
+  background: #fff; color: var(--ink); border-radius: 18px; padding: 12px 12px 14px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, .3);
+}
+.rv-card-rank {
+  display: block; text-align: center; font-family: var(--display); font-size: 26px; margin: 2px 0 8px;
+}
+.is-center .rv-card-rank { font-size: 40px; }
+.rv-card-photo { display: grid; place-items: center; }
+.rv-card .rv-frame img { box-shadow: none; }
+.rv-card .rv-reticle { opacity: 1; }
+.rv-card-chips { display: flex; height: 14px; margin-top: 10px; border-radius: 4px; overflow: hidden; }
+.rv-card-chips i { flex: 1; }
+.rv-card-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 10px; }
+.rv-card-meta b { font-family: var(--display); font-weight: 400; font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-card-score { font-family: var(--display); font-size: 30px; font-variant-numeric: tabular-nums; }
+.is-center .rv-card-meta b { font-size: 34px; }
+.is-center .rv-card-score { font-size: 52px; }
+.rv-card.is-win { animation: win-glow 1.6s ease-in-out infinite; }
+@keyframes win-glow {
+  50% { box-shadow: 0 24px 50px rgba(0, 0, 0, .3), 0 0 0 10px rgba(255, 255, 255, .5); }
+}
+.rv-who {
+  position: absolute; left: 50%; top: 50%; z-index: 4; margin: 0; white-space: nowrap;
+  font-family: var(--display); font-size: clamp(60px, 11vw, 170px); line-height: 1;
+  text-shadow: 0 6px 30px rgba(0, 0, 0, .25);
+}
+.rv-flash { position: absolute; inset: 0; z-index: 4; background: #fff; pointer-events: none; }
+
+/* 최종 시상식 — 조명이 꺼진 무대 */
+.rv-final { background: #161616; color: #fff; transition: background-color .6s; }
+.rv-final.is-dim { background: #050505; }
+.rv-final.is-lit { background: #1f1f1f; }
+.rv-spot {
+  position: absolute; left: 50%; bottom: 0; width: 46vw; height: 120vh; margin-left: -23vw; opacity: 0;
+  background: radial-gradient(ellipse 50% 36% at 50% 78%, rgba(255, 255, 255, .34), rgba(255, 255, 255, .06) 60%, transparent 75%);
+  pointer-events: none; z-index: 1;
+}
+.rv-recap { position: absolute; top: 14vh; left: 0; right: 0; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; z-index: 2; transform-origin: 50% 0; }
+.rv-recap-chip { width: 150px; background: #fff; color: var(--ink); border-radius: 12px; overflow: hidden; }
+.rv-recap-chip i { display: block; height: 80px; }
+.rv-recap-chip b { display: block; font-weight: 600; font-size: 15px; padding: 8px 12px 0; }
+.rv-recap-chip small { display: block; color: var(--graphite); font-size: 13px; padding: 0 12px 10px; }
+.rv-podium { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; align-items: flex-end; gap: 18px; z-index: 2; }
+.rv-pcol { width: min(260px, 26vw); display: flex; flex-direction: column; align-items: center; }
+.rv-pinfo { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 14px; text-align: center; }
+.rv-title.is-champ { font-size: clamp(40px, 6vw, 92px); top: 3vh; }
+.rv-pphoto { width: min(150px, 13vw); aspect-ratio: 1; object-fit: cover; border-radius: 14px; border: 4px solid #fff; margin-bottom: 6px; }
+.p1 .rv-pphoto { width: min(210px, 16vw); }
+.rv-pname { font-family: var(--display); font-weight: 400; font-size: clamp(22px, 2.6vw, 40px); word-break: keep-all; }
+.p1 .rv-pname { font-size: clamp(30px, 4vw, 64px); }
+.rv-ptotal { font-family: var(--display); font-size: 22px; color: #bdbdbd; font-variant-numeric: tabular-nums; }
+.rv-pblock {
+  width: 100%; display: grid; place-items: start center; line-height: 1.5; overflow: hidden;
+  font-family: var(--display); font-size: 56px; color: var(--ink); background: #fff; border-radius: 14px 14px 0 0;
+}
+.p2 .rv-pblock { background: #cfcfcf; }
+.p3 .rv-pblock { background: #9a9a9a; }
+.rv-champ {
+  position: absolute; top: 20vh; left: 0; right: 0; margin: 0; text-align: center; z-index: 3;
+  font-family: var(--display); font-size: clamp(40px, 6vw, 96px);
+}
+
+/* 휴대폰 순위 공개 */
+.rv-phone { align-content: center; justify-items: center; gap: 10px; text-align: center; padding: 20px; }
+.rv-ph-title { margin: 0; font-family: var(--display); font-size: 28px; }
+.rv-ph-none { margin: 0; font-family: var(--display); font-size: 56px; }
+.rv-reel {
+  position: relative; height: 42vw; max-height: 220px; width: 70vw; max-width: 340px; overflow: hidden;
+  display: flex; justify-content: center;
+  -webkit-mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent);
+  mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent);
+}
+.rv-reel-strip { display: flex; flex-direction: column; align-items: stretch; min-width: 1.3em; font-size: min(36vw, 190px); }
+.rv-reel-strip span { display: block; font-family: var(--display); text-align: center; font-variant-numeric: tabular-nums; }
+.rv-reel-unit { align-self: center; font-family: var(--display); font-size: 40px; margin-left: 6px; }
+.rv-reel.is-stop { -webkit-mask-image: none; mask-image: none; }
+.rv-ph-score { margin: 0; font-family: var(--display); font-size: 40px; font-variant-numeric: tabular-nums; }
+.rv-ph-yay {
+  margin: 6px 0 0; font-family: var(--display); font-size: 44px; padding: 4px 22px; border-radius: 999px;
+  background: var(--on-target); color: var(--target);
+}
+
+/* 결과 화면: 사진 + 누적 순위 */
+.result-layout { display: grid; grid-template-columns: 1fr 340px; gap: 18px; padding: 0 28px; align-items: start; }
+.result-layout .team-rank, .result-layout .shot-grid, .result-layout .missing { padding-left: 0; padding-right: 0; }
+.standings { position: sticky; top: 16px; }
+.standings h2 { margin-bottom: 6px; }
+.lb { list-style: none; margin: 0; padding: 0; }
+.lb-row {
+  position: relative; display: grid; grid-template-columns: 30px 1fr 42px 70px; align-items: center; gap: 8px;
+  padding: 9px 6px; border-bottom: 1px solid var(--rule); border-radius: 8px; background: var(--card);
+}
+.lb-rank { font-family: var(--display); font-size: 22px; }
+.lb-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-name small { display: block; font-size: 12px; color: var(--graphite); }
+.lb-delta { font-size: 13px; text-align: center; color: var(--graphite); }
+.lb-delta.is-up { color: var(--ink); font-weight: 600; }
+.lb-total { font-family: var(--display); font-size: 22px; text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 1000px) {
+  .result-layout { grid-template-columns: 1fr; padding: 0 16px; }
+  .standings { position: static; }
+}
+@media (max-width: 640px) {
+  .rv-race-head, .rv-lane { grid-template-columns: 30px 70px 1fr 56px; gap: 8px; }
+  .rv-top { flex-direction: column; }
+}
+
+.row-in { animation: rise .45s ease-out both; }

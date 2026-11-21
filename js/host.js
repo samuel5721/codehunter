@@ -16,7 +16,8 @@
     phaseEndsAt: 0, tick: 0,
     subs: {}, roster: {},
     results: [], teamTotals: [0, 0, 0, 0],
-    lastResultMsg: null, lastFinalMsg: null
+    lastResultMsg: null, lastFinalMsg: null,
+    revealed: true        // 큰 화면 발표가 끝났는지 (휴대폰은 이게 true가 돼야 순위를 보여 줌)
   };
 
   /* ================= 저장 / 복구 (진행자 새로고침 대비) ================= */
@@ -188,6 +189,7 @@
       round: H.round, rounds: H.settings.rounds, time: H.settings.time,
       target: H.phase === 'lobby' || H.phase === 'final' ? null : H.target,
       remain: Math.max(0, H.phaseEndsAt - Date.now()),
+      revealed: H.revealed,
       you: { pid: pid, name: p.name, team: p.team, total: Math.round((p.total || 0) * 10) / 10, submitted: !!H.subs[pid] },
       count: H.order.length
     };
@@ -438,8 +440,10 @@
         teams = UI.rankBy(teams, 'score');
       }
 
-      H.results.push({ round: H.round, target: target, list: ranked, teams: teams });
+      var result = { round: H.round, target: target, list: ranked, teams: teams, standings: standings(H.round, teams) };
+      H.results.push(result);
       H.phase = 'result';
+      H.revealed = false;
       H.lastResultMsg = {
         t: 'result', round: H.round, rounds: H.settings.rounds, target: target, mode: H.settings.mode,
         teams: teams,
@@ -450,15 +454,50 @@
       };
       H.net.broadcast(H.lastResultMsg);
       broadcastState();
-      showResult(H.results[H.results.length - 1]);
       status('');
       save();
+      playRound(result, true);
     });
   }
 
+  // 누적 순위표 데이터: 이번 라운드 전 합계(prev) → 지금 합계(now)
+  function standings(round, teams) {
+    if (H.settings.mode === 'team') {
+      return teams.map(function (t) {
+        return { id: 't' + t.id, name: t.name, prev: Math.round((t.total - t.score) * 10) / 10, now: t.total };
+      });
+    }
+    return H.order.map(function (pid) {
+      var p = H.players[pid], sc = p.scores[round] || 0;
+      return { id: pid, name: p.name, prev: Math.round((p.total - sc) * 10) / 10, now: p.total };
+    });
+  }
+
+  function revealData(r) {
+    return { round: r.round, target: r.target, list: r.list, teams: r.teams };
+  }
+
+  // 큰 화면 발표 → 끝나면(또는 건너뛰면) 결과 화면 + 휴대폰에 공개 신호
+  function playRound(r, first) {
+    UI.setTarget(r.target.hex);
+    Reveal.round(revealData(r), function () {
+      showResult(r, first);
+      if (first) markRevealed();
+    });
+  }
+
+  function markRevealed() {
+    if (H.revealed) return;
+    H.revealed = true;
+    H.net.broadcast({ t: 'revealed', round: H.round, final: H.phase === 'final' });
+    broadcastState();
+  }
+
   /* ================= 결과 화면 ================= */
-  function showResult(r) {
+  function showResult(r, animateBoard) {
     UI.show('host-result');
+    $('standings-title').textContent = H.settings.mode === 'team' ? '팀 누적 순위' : '누적 순위';
+    if (r.standings) Reveal.leaderboard($('hr-standings'), r.standings, !!animateBoard);
     $('hr-title').textContent = r.round + '라운드 결과';
     var tp = $('hr-target');
     tp.textContent = '';
@@ -486,8 +525,7 @@
     var n = shots.length;
     shots.forEach(function (x, i) {
       var li = el('li', 'shot-card reveal' + (x.rank === 1 ? ' is-first' : ''));
-      // 꼴찌부터 1등 순서로 나타나게
-      li.style.animationDelay = ((n - 1 - i) * 0.18) + 's';
+      li.style.animationDelay = (i * 0.06) + 's';
       li.appendChild(UI.shotFigure(x.url, x));
       var chips = el('div', 'shot-chips'), a = el('i'), b = el('i');
       a.style.background = r.target.hex;
@@ -513,24 +551,70 @@
 
     var last = H.round >= H.settings.rounds;
     $('btn-next-round').textContent = last ? '최종 결과 발표' : '다음 라운드';
-    setTimeout(function () { UI.sfx.fanfare(); }, Math.min(3000, n * 180));
   }
 
   /* ================= 최종 ================= */
   function showFinal(silent) {
     H.phase = 'final';
-    UI.show('host-final');
+    var data = finalData();
+    if (silent) { H.revealed = true; sendFinal(data); renderFinal(data); return; }
+    H.revealed = false;
+    sendFinal(data);
+    Reveal.final(showData(data), function () {
+      renderFinal(data);
+      markRevealed();
+    });
+  }
+
+  function finalData() {
     var team = H.settings.mode === 'team';
     var people = UI.rankBy(H.order.map(function (pid) {
       var p = H.players[pid];
       return { pid: pid, name: p.name, team: p.team, total: p.total, scores: p.scores };
     }), 'total');
-
     var teams = [];
     if (team) {
       for (var i = 0; i < H.settings.teams; i++) teams.push({ id: i, name: UI.TEAM_NAMES[i], total: H.teamTotals[i] });
       teams = UI.rankBy(teams, 'total');
     }
+    return { team: team, people: people, teams: teams };
+  }
+
+  // 각자 가장 잘 나온 사진
+  function bestShot(pid) {
+    var b = null;
+    H.results.forEach(function (r) { r.list.forEach(function (x) { if (x.pid === pid && x.url && (!b || x.score > b.score)) b = x; }); });
+    return b;
+  }
+
+  function showData(data) {
+    var src = data.team ? data.teams : data.people;
+    return {
+      teamMode: data.team,
+      entries: src.slice(0, 3).map(function (x) {
+        var b = data.team ? null : bestShot(x.pid);
+        return { name: x.name, total: x.total, rank: x.rank, url: b ? b.url : null };
+      }),
+      rounds: H.results.map(function (r) {
+        var w = r.list.filter(function (x) { return x.rank === 1 && x.score > 0; })[0];
+        return { round: r.round, hex: r.target.hex, name: r.target.name, winner: w ? w.name : null };
+      })
+    };
+  }
+
+  function sendFinal(data) {
+    H.lastFinalMsg = {
+      t: 'final', mode: H.settings.mode,
+      teams: data.teams.map(function (t) { return { id: t.id, name: t.name, total: t.total, rank: t.rank }; }),
+      list: data.people.map(function (x) { return { pid: x.pid, name: x.name, team: x.team, total: x.total, rank: x.rank }; })
+    };
+    if (H.net) { H.net.broadcast(H.lastFinalMsg); broadcastState(); }
+    save();
+  }
+
+  function renderFinal(data) {
+    UI.show('host-final');
+    var team = data.team, people = data.people, teams = data.teams;
     var top = team ? teams : people;
     var winners = top.filter(function (x) { return x.rank === 1; });
     $('hf-label').textContent = (team ? '우승 팀' : '최종 1등') + (winners.length > 1 ? ' (공동)' : '');
@@ -540,16 +624,11 @@
     // 시상대: 개인 3등까지, 각자 가장 잘 나온 사진과 함께
     var pod = $('hf-podium');
     pod.textContent = '';
-    var best = function (pid) {
-      var b = null;
-      H.results.forEach(function (r) { r.list.forEach(function (x) { if (x.pid === pid && x.url && (!b || x.score > b.score)) b = x; }); });
-      return b;
-    };
     [1, 0, 2].forEach(function (k) {
       var x = people[k];
       if (!x) return;
       var col = el('div', 'col p' + Math.min(3, x.rank));
-      var b = best(x.pid);
+      var b = bestShot(x.pid);
       if (b) { var im = el('img', 'thumb'); im.src = b.url; im.alt = ''; col.appendChild(im); }
       col.appendChild(el('div', 'who', x.name));
       col.appendChild(el('div', 'pts', UI.fmtScore(x.total) + '점'));
@@ -557,15 +636,16 @@
       pod.appendChild(col);
     });
 
-    // 표: 라운드별 점수
+    // 표: 라운드별 점수 (위에서부터 차례로 나타남)
     var rounds = H.results.map(function (r) { return r.round; });
     var thead = $('hf-thead'), tbody = $('hf-body');
     thead.textContent = ''; tbody.textContent = '';
     var hr = el('tr');
     ['순위', '이름'].concat(team ? ['팀'] : []).concat(rounds.map(function (n) { return n + 'R'; })).concat(['합계']).forEach(function (t, i) { hr.appendChild(el('th', team && i === 2 ? 'tl' : null, t)); });
     thead.appendChild(hr);
-    people.forEach(function (x) {
-      var tr = el('tr');
+    people.forEach(function (x, i) {
+      var tr = el('tr', 'row-in');
+      tr.style.animationDelay = (i * 0.05) + 's';
       tr.appendChild(el('td', null, x.rank));
       tr.appendChild(el('td', null, x.name));
       if (team) tr.appendChild(el('td', 'tl', x.team >= 0 ? UI.TEAM_NAMES[x.team] : '-'));
@@ -574,21 +654,12 @@
       tbody.appendChild(tr);
     });
     $('hf-table-title').textContent = team ? '개인 순위 (팀 점수는 라운드마다 팀원 평균의 합)' : '전체 순위';
-
-    H.lastFinalMsg = {
-      t: 'final', mode: H.settings.mode,
-      teams: teams.map(function (t) { return { id: t.id, name: t.name, total: t.total, rank: t.rank }; }),
-      list: people.map(function (x) { return { pid: x.pid, name: x.name, team: x.team, total: x.total, rank: x.rank }; })
-    };
-    if (H.net) { H.net.broadcast(H.lastFinalMsg); broadcastState(); }
-    save();
-    if (!silent) { UI.sfx.fanfare(); UI.confetti(H.results.map(function (r) { return r.target.hex; })); }
   }
 
   function newGame() {
     H.results.forEach(function (r) { r.list.forEach(function (x) { if (x.url) URL.revokeObjectURL(x.url); }); });
     H.round = 0; H.results = []; H.usedColors = []; H.teamTotals = [0, 0, 0, 0];
-    H.subs = {}; H.roster = {}; H.target = null; H.lastResultMsg = null; H.lastFinalMsg = null;
+    H.subs = {}; H.roster = {}; H.target = null; H.lastResultMsg = null; H.lastFinalMsg = null; H.revealed = true;
     H.order.forEach(function (pid) { H.players[pid].total = 0; H.players[pid].scores = {}; });
     enterLobby();
   }
@@ -618,6 +689,14 @@
       if (H.round >= H.settings.rounds) showFinal(); else startRound();
     });
     $('btn-to-lobby').addEventListener('click', enterLobby);
+    $('btn-replay').addEventListener('click', function () {
+      var r = H.results[H.results.length - 1];
+      if (r && r.list.some(function (x) { return x.url; })) playRound(r, false);
+    });
+    $('btn-final-replay').addEventListener('click', function () {
+      var data = finalData();
+      Reveal.final(showData(data), function () { renderFinal(data); });
+    });
     $('btn-new-game').addEventListener('click', newGame);
     $('btn-copy').addEventListener('click', function () {
       var u = $('join-url').dataset.url;

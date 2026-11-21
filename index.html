@@ -146,10 +146,19 @@
       <h1 class="bar-title" id="hr-title">1라운드 결과</h1>
       <div class="target-pair" id="hr-target"></div>
     </header>
-    <div id="hr-teams" class="team-rank" hidden></div>
-    <ol id="hr-grid" class="shot-grid"></ol>
-    <p id="hr-missing" class="missing"></p>
+    <div class="result-layout">
+      <div class="result-main">
+        <div id="hr-teams" class="team-rank" hidden></div>
+        <ol id="hr-grid" class="shot-grid"></ol>
+        <p id="hr-missing" class="missing"></p>
+      </div>
+      <aside class="card standings" aria-labelledby="standings-title">
+        <h2 id="standings-title">누적 순위</h2>
+        <ol id="hr-standings" class="lb"></ol>
+      </aside>
+    </div>
     <div class="result-actions">
+      <button type="button" class="btn btn-line" id="btn-replay">발표 다시 보기</button>
       <button type="button" class="btn btn-line" id="btn-to-lobby">대기실로</button>
       <button type="button" class="btn btn-ink btn-big" id="btn-next-round">다음 라운드</button>
     </div>
@@ -171,6 +180,7 @@
       </table>
     </div>
     <div class="result-actions">
+      <button type="button" class="btn btn-line" id="btn-final-replay">시상식 다시 보기</button>
       <button type="button" class="btn btn-line" id="btn-new-game">같은 사람들로 새 게임</button>
     </div>
   </section>
@@ -267,6 +277,7 @@
   <script src="js/color.js"></script>
   <script src="js/net.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/reveal.js"></script>
   <script src="js/host.js"></script>
   <script src="js/player.js"></script>
   <script src="js/main.js"></script>
